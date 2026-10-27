@@ -1660,6 +1660,24 @@ button.cm-row:hover { background: var(--bg-2); }
 	gap: var(--space-6);
 	min-width: 0;
 }
+/* A GRID ITEM's default `min-width` is `auto`, which means it refuses to
+   shrink below its content's min-content width. So `min-width: 0` on the
+   GRID is not enough: the tracks are sized by the ITEMS, and an item
+   whose content cannot wrap (a nowrap meta, a long unbroken address)
+   pushes its track wider than the grid itself.
+
+   MEASURED on the /testing review page at a 390px viewport: a
+   `.cm-cols` holding a `.cm-section` with a `.cm-timeline` computed
+   `grid-template-columns: 478.875px` inside a 310px grid, and the page
+   scrolled sideways to 519px. Setting `min-width: 0` on the grid
+   ALONE changed nothing - the track was already 310px in one probe and
+   478px in another, because the track is sized by the item, not the
+   grid. Hiding the section dropped the page's scrollWidth from 519 to
+   390, which located the cause; the fix is the item's min-width.
+
+   So the CHILDREN get the floor, not the grid. `> *` so it is the
+   direct items - a nested grid is that grid's own business. */
+.cm-cols > * { min-width: 0; }
 @media (min-width: 760px) {
 	.cm-cols--2 { grid-template-columns: 1fr 1fr; }
 }
@@ -11794,6 +11812,73 @@ dialog.cm-lightbox--spec:not([open]) .cm-lightbox__close {
 	}
 }
 
+/* ---------- audio player ---------- */
+/* A rendered track is a RECORD, the same shape as a meter or a stat:
+   identity first, then the one thing you do with it. The platform
+   <audio> carries the transport (seek bar, play/pause, volume,
+   keyboard focus) - the system's rule is platform-first, and a
+   hand-rolled scrubber is where focus trapping and 300ms-latency
+   seeks go to die. The frame only does what the element does not:
+   the frame itself, the identity, and the state where there is no
+   track to play yet.
+   The element stays BARE inside: an inner `class` would trip the
+   base layer's `audio:not([class])` default the same way a classed
+   video does, so the frame does not depend on it. */
+.cm-audio {
+	margin: var(--space-4) 0;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-2);
+}
+/* One row at a time. The element's own chrome (the scrubber, the
+   buttons) wraps to a second line on a phone; the identity row
+   must not jump, so it is pinned above the element rather than
+   interleaved with it. */
+.cm-audio__id {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--line-soft);
+	min-width: 0;
+}
+.cm-audio__name {
+	font-size: max(var(--min-font), var(--text-xs));
+	line-height: 1.3;
+	color: var(--ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+/* The meta is a SEPARATE span, not a comma in the name, so a name
+   that is also long keeps the dimensions visible: the name truncates,
+   the meta wraps. Same split `.cm-media-grid__meta` makes. */
+.cm-audio__meta {
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), var(--text-micro));
+	color: var(--ink-faint);
+	letter-spacing: 0.04em;
+	white-space: nowrap;
+	margin-inline-start: auto;
+}
+.cm-audio audio {
+	display: block;
+	width: 100%;
+}
+/* The empty state takes the frame: a generation that is still running
+   (or failed) must not collapse the row, or the page jumps the moment
+   the track lands. The spinner is the existing `.cm-spinner`; the
+   frame is this component's. */
+.cm-audio__empty {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	color: var(--ink-dim);
+	font-size: max(var(--min-font), var(--text-sm));
+}
+
 /* ============ stack ownership (LAST, on purpose) ============
    These two rules must beat every component's own block margin. They are
    at the end of the layer for that reason, and `gap` is a single number
@@ -11829,3 +11914,59 @@ dialog.cm-lightbox--spec:not([open]) .cm-lightbox__close {
    20, 56, 28) and `lists` four (32, 20, 26, 44). Moved here, every
    section reports a single gap. */
 .cm-section--pad > * { margin-block: 0; }
+
+/* ============================================================
+   cm-table — mono data grid (DataTable.astro)
+   rows-in, table-out; the caller owns the array.
+   ============================================================ */
+.cm-table-wrap {
+	overflow-x: auto;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg);
+	position: relative;
+	max-height: var(--table-max-h, 30rem);
+}
+.cm-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+}
+.cm-table__th {
+	text-align: start;
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--line);
+	color: var(--ink-dim);
+	font-weight: 400;
+	letter-spacing: 0.04em;
+	text-transform: lowercase;
+	font-size: var(--min-font);
+	white-space: nowrap;
+	background: var(--bg-2);
+	position: sticky;
+	top: 0;
+}
+.cm-table__th--center { text-align: center; }
+.cm-table__th--left { text-align: start; }
+.cm-table__th--right { text-align: end; }
+.cm-table__th--sortable::after { content: ' \2195'; opacity: 0.5; }
+.cm-table__td {
+	padding: var(--space-1) var(--space-3);
+	border-bottom: 1px solid var(--line);
+	color: var(--ink);
+	vertical-align: top;
+	font-size: max(var(--min-font), var(--text-xs));
+}
+.cm-table__td--center { text-align: center; }
+.cm-table__td--left { text-align: start; }
+.cm-table__td--right { text-align: end; font-variant-numeric: tabular-nums; }
+.cm-table__tr { display: table-row; }
+.cm-table__tr:last-child .cm-table__td { border-bottom: none; }
+.cm-table__tr:hover .cm-table__td { background: var(--bg-3); }
+.cm-table__empty {
+	padding: var(--space-4);
+	text-align: center;
+	color: var(--ink-dim);
+	font-size: max(var(--min-font), var(--text-sm));
+}
