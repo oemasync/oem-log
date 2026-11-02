@@ -255,6 +255,51 @@ test('no scoped-style selector targets a class its own file does not use', () =>
 	assert.deepEqual(problems, [], problems.join('\n'));
 });
 
+test('the page head is the library .cm-head, not a forked local class', () => {
+	// Dead CSS cannot see this. The check above asks "is the selector
+	// dead", and `.about-head` was NOT dead - its markup used it. What
+	// was wrong is that the library already owns `.cm-head`, so a page
+	// styling its own head-shaped block under a different name is a
+	// second implementation of surface the design system owns, and
+	// every library fix to head padding, title weight or rhythm stops
+	// at this repo boundary. Measured before the migration: the fork
+	// re-declared padding, the h1 weight and letter-spacing, all of
+	// which the library had shipped.
+	//
+	// The invariant is the CLASS, not the shape: a head-shaped block
+	// carries `.cm-head`, and no scoped rule in the file restyles a
+	// differently-named head. Asserting the markup is the half that
+	// survives a rename; asserting the absence of the fork is the half
+	// that survives a silent drift back.
+	for (const f of astroFiles()) {
+		const body = readFileSync(f, 'utf8');
+		const markup = body.replace(/<style>[\s\S]*?<\/style>/g, '');
+		// A head-shaped block: a section whose first child is a kicker
+		// paragraph followed by a heading. Anything matching this shape
+		// must carry class="cm-head". The <p> is matched through its
+		// closing tag: `[^>]*>` stops at the first `>` and leaves the
+		// paragraph's own text in the gap, so a bare `\s*<h` after it
+		// matched nothing and the check silently saw zero blocks.
+		const shaped = markup.matchAll(/<section[^>]*>\s*<p[^>]*class="[^"]*\bcm-kicker\b[^"]*"[^>]*>[\s\S]*?<\/p>\s*<h[1-6][^>]*>/g);
+		for (const m of shaped) {
+			const tag = m[0].match(/<section[^>]*>/)?.[0] ?? '';
+			assert.ok(/class="[^"]*\bcm-head\b/.test(tag),
+				`${f.replace(root, '')}: a kicker-headed section carries "${tag.match(/class="([^"]*)"/)?.[1] ?? ''}", not .cm-head`);
+		}
+	}
+	// And the fork's own classes must not be styled anywhere.
+	const forked = ['about-head'];
+	for (const f of astroFiles()) {
+		const style = stripComments(
+			(readFileSync(f, 'utf8').match(/<style>[\s\S]*?<\/style>/g) || []).join('\n')
+		);
+		for (const c of forked) {
+			assert.ok(!new RegExp(`\\.${c}[\\s,.{]`).test(style),
+				`${f.replace(root, '')}: scoped rule for .${c}, which the library does not own`);
+		}
+	}
+});
+
 test('no font-size in a scoped block is below the mobile floor', () => {
 	// --min-font is 12px and the flooring rule lives in base.css, which an
 	// Astro scoped block outranks. So the floor has to be declared next to
