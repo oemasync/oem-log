@@ -24,7 +24,7 @@ import { SITE } from '../astro/config';
 	<body>
 		<Header extraLinks={[{ href: SITE.github, label: 'github' }]} />
 		<main class="cm-stack cm-stack--section">
-			<section class="about-head">
+			<section class="cm-head">
 				<p class="cm-kicker">about</p>
 				<h1>This blog</h1>
 			</section>
@@ -57,9 +57,7 @@ import { SITE } from '../astro/config';
 </html>
 
 <style>
-	.about-head { padding: var(--head-top) 0 2rem; }
 	/* `.cm-kicker` already owns its gap in the library. */
-	.about-head h1 { font-size: var(--head-h1); margin: 0; letter-spacing: -0.01em; }
 
 	.about-body {
 		padding: 1.6rem 1.6rem;
