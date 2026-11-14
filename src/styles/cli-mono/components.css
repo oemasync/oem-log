@@ -2201,6 +2201,26 @@ button.cm-row:hover { background: var(--bg-2); }
 }
 .cm-state__title { color: var(--ink); margin: 0 0 var(--space-2); }
 .cm-state__body { margin: 0 auto; max-width: var(--measure-narrow); color: var(--ink-dim); }
+/* The documented one-liner under the title. The README's empty-state
+   example named it `cm-state__text` from the day the family shipped, and
+   the rule was never written: a consumer that copied the example rendered
+   a bare <p> on UA margins, and one live app drifted on its own
+   `cm-state__hint` for the same gap (17 uses across 9 pages, all
+   unstyled). The documented name is the contract, so the rule lands on
+   it rather than on the drift.
+
+   `__body` is the longer paragraph under the mark, so the one-liner
+   sits one tier fainter in the ramp: title --ink, body --ink-dim, text
+   --ink-faint. A state that carries both then reads title -> body ->
+   hint instead of three same-weight lines, and the tier clears AA
+   against the panel in both themes (MEASURED: #8b8b8b on #111111 =
+   5.54:1 dark, #6d6d6d on #f5f5f5 = 4.75:1 light).
+
+   A link inside a hint line is NOT safe yet: bare `a` resolves to
+   --ink-dim, which sits 1.24:1 (dark) / 1.71:1 (light) against the
+   faint text - invisible in both themes. Keep hint lines link-free
+   until the family owns a link rule. */
+.cm-state__text { margin: 0 auto; max-width: var(--measure-narrow); color: var(--ink-faint); }
 .cm-state__actions {
 	margin-top: var(--space-5);
 	display: flex; gap: var(--space-2); justify-content: center; flex-wrap: wrap;
@@ -2427,6 +2447,46 @@ button.cm-row:hover { background: var(--bg-2); }
 	background: var(--ink);
 	transform: translateX(calc(var(--cm-progress, 0%) - 100%));
 	transition: transform var(--cm-t) var(--cm-ease);
+}
+
+/* ---------- readbar: the reading-progress indicator ----------
+   The fixed sibling of `.cm-progress`. `cm-progress` is an inline bar a
+   page drops into its content beside a label; `.cm-readbar` is pinned to
+   the top of the viewport so it is the one element that stays put while a
+   long article scrolls. It is chrome, not a control: `pointer-events: none`
+   so the line never blocks the header it sits above, and a z-index that
+   pierces the header (`--z-readbar`, above `--z-header`) but stays under
+   popover and toast chrome.
+
+   Same fill trick as the progress bar - a transform the runtime drives,
+   never a width - so the two share the reduced-motion guard. The track is
+   EMPTY by default: `--cm-readbar` starts at 0, so a page that loads with
+   no runtime shows a bare line, not a full bar claiming 100%.
+
+   Logical insets, per the Direction baseline: the bar hugs the top edge
+   and both side edges, so it survives RTL with no mirroring. */
+.cm-readbar {
+	position: fixed;
+	inset-block-start: 0;
+	inset-inline: 0;
+	height: var(--space-1);
+	z-index: var(--z-readbar);
+	pointer-events: none;
+}
+.cm-readbar__fill {
+	display: block;
+	width: 100%;
+	height: 100%;
+	background: var(--ink);
+	transform-origin: start center;
+	transform: scaleX(calc(var(--cm-readbar, 0%) / 100));
+	transition: transform var(--cm-t) var(--cm-ease);
+}
+/* A specimen (or any frozen bar) keeps its authored value: the runtime
+   binds around this class, so the only thing the CSS must own is the
+   in-flow position - the value itself stays in the markup. */
+.cm-readbar--spec {
+	position: static;
 }
 
 /* ---------- alert ----------
@@ -11164,6 +11224,9 @@ input.cm-slider:disabled {
 	/* A progress fill sliding to its new value is motion too: under
 	   reduced motion the bar JUMPS to the value it is told. */
 	.cm-progress__fill { transition: none; }
+	/* Same for the reading-progress line: under reduced motion it JUMPS to
+	   the scroll fraction instead of easing to it. */
+	.cm-readbar__fill { transition: none; }
 	/* A server square brightening under the pointer is a fade, and a fade
 	   is motion. The state itself must still read - `transition: none`
 	   makes it APPEAR at its hovered colour instantly. */
@@ -11757,6 +11820,7 @@ dialog.cm-lightbox--spec:not([open]) .cm-lightbox__close {
 	.cm-keys,
 	.cm-bell,
 	.cm-revert:not([data-cm-revert-resolved]),
+	.cm-readbar,
 	[data-cm-progress] {
 		display: none !important;
 	}
