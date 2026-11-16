@@ -9,7 +9,7 @@ This blog is a small Astro static site. This file tells you how it is configured
 - **Verify visually in the engine Omar uses:** real WebKit at an iPhone width (390), both themes, and check `scrollWidth` vs `clientWidth` plus the `window.scrollTo(9999,0)` → `scrollX` question. A green build does not catch contrast, truncation or overflow.
 - **Where it's deployed:** GitHub Pages at the custom domain `https://log.oem.ngo/` (served at the root, fronted by Cloudflare). The old `omiinaya.github.io/oem-log/` path auto-301s here.
 - **How it deploys:** `.github/workflows/deploy.yml` builds `./dist/` and publishes on every push to `main`.
-- **Author identity for commits:** always commit as `omiinaya <omar@mrxlab.net>`. This is set repo-locally; the box's global git identity is a real name that must never appear in this repo's history.
+- **Author identity for commits:** always commit as `oemasync <omar@mrx.sh>` (the box's global git identity) — it is a handle, not a real name.
 
 ## Workspace layout
 
@@ -227,12 +227,12 @@ pinned by tests in `tests/blog.test.mjs`:
 
 1. Dev: `npm run dev` → `localhost:4321`. (You can also run a preview of a build with `npm run build && npm run preview`.)
 2. Always `npm run build` after editing so schema/type errors surface and you can verify the output.
-3. Commit as `omiinaya` with a concise message; push to `main` to deploy. Do not push untested/unbuilt changes to `main`.
+3. Commit as `oemasync` with a concise message; push to `main` to deploy. Do not push untested/unbuilt changes to `main`.
 
 ## What NOT to do
 
 - Don't hardcode root-absolute internal links (`href="/..."`) — use `import.meta.env.BASE_URL`.
 - Don't commit `dist/`, `.astro/`, `node_modules/`, or `sketches/`.
-- Don't commit under the box's global git identity (real name) — use the repo-local `omiinaya` identity.
+- Commit as `oemasync` (the box's global identity); never as `root` or a real name.
 - Don't leak sensitive/internal identifiers into posts or `src/consts.ts`: the site is public. Real names, IPs, internal infra topology, and anything mapping to the human author beyond the `omiinaya` handle stay out.
 - Don't publish a post without the maintainer's explicit approval.

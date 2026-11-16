@@ -39,7 +39,7 @@ pubDate: 'Sep 24 2026'
 
 3. Write the body in Markdown. Headings (`##`) render as article sections.
 4. `npm run build` to confirm frontmatter validates and the post compiles.
-5. Commit as `omiinaya` and push `main` to deploy.
+5. Commit as `oemasync` and push `main` to deploy.
 
 > Do not publish a post without the maintainer's explicit approval.
 
@@ -63,7 +63,7 @@ Edit `astro.config.mjs`:
 
 ## Committing and deploying
 
-- Commit identity: `omiinaya <omar@mrxlab.net>` (repo-local). The machine's global git identity is a real name; never use it here.
+- Commit identity: `oemasync <omar@mrx.sh>` — the machine's global git identity (a handle, not a real name).
 - Almost always commit to `main`, then push. `.github/workflows/deploy.yml` builds `dist/` and deploys to GitHub Pages automatically.
 - Never commit `dist/`, `.astro/`, `node_modules/`, or `sketches/` (gitignored).
 - Keep commits small and messages concise. Prefer building before pushing so failures don't land on `main`.

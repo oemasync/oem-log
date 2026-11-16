@@ -10,7 +10,7 @@ Astro static dev blog deployed to GitHub Pages. Node >= 22.12. Every push to `ma
 
 1. **`base: '/'`** is set in `astro.config.mjs` (custom domain, served at the root). Every internal link must use `import.meta.env.BASE_URL` — never a hardcoded `href="/..."`. (BaseHead, Header, HeaderLink already do this.)
 2. **`src/content.config.ts` validates post frontmatter.** Missing `title`/`description`/`pubDate` fails the build. Run `npm run build` to catch it.
-3. **Commit as `omiinaya <omar@mrxlab.net>`** (repo-local identity). The box's global git identity is a real name and must not appear in this repo.
+3. **Commit as `oemasync <omar@mrx.sh>`** — the box's global git identity (a handle, not a real name).
 4. **Don't commit** `dist/`, `.astro/`, `node_modules/`, `sketches/` (all gitignored).
 5. **Site is public** — never add sensitive/internal identifiers (real names, IPs, infra topology) to posts or `src/consts.ts`.
 6. **No post publishes without the maintainer's explicit approval.**
@@ -33,6 +33,6 @@ CLI-mono theme: black/grey/white monospace, **dark by default**, light via opt-i
 
 - `npm run build` succeeds.
 - Grep the built `dist/` for any `(href|src)="/` that isn't base-prefixed (a stale root-absolute link).
-- Commit message concise; aim for `omiinaya` authorship; push `main`.
+- Commit message concise; aim for `oemasync` authorship; push `main`.
 
 See [AGENTS.md](./AGENTS.md) for the full workspace map and deploy gotchas.

@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const root = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -88,11 +89,21 @@ test('the vendored layers are byte-identical to the library', () => {
 		'src/styles/cli-mono/base.css': 'src/styles/base.css',
 		'src/styles/cli-mono/components.css': 'src/styles/components.css',
 		'src/js/cli-mono.js': 'src/js/cli-mono.js',
+		'src/js/cli-mono-theme-guard.js': 'src/js/cli-mono-theme-guard.js',
 	};
 	const lib = process.env.OEM_UI_SRC || '/root/projects/oem-ui';
+	// Compare against HEAD, not the working tree: install.sh vendors from
+	// a git archive export, and a concurrent mutation run means the
+	// working tree may hold a mutant. The blog copy must equal the
+	// committed library bytes.
+	const libOrigin = (p) => {
+		const r = spawnSync('git', ['show', `HEAD:${p}`], { cwd: lib, encoding: 'utf8' });
+		if (r.status === 0) return r.stdout;
+		return readFileSync(join(lib, p), 'utf8');
+	};
 	for (const [vendored, origin] of Object.entries(map)) {
 		if (!existsSync(join(lib, origin))) continue; // library not on this box
-		assert.equal(read(vendored), readFileSync(join(lib, origin), 'utf8'),
+		assert.equal(read(vendored), libOrigin(origin),
 			`${vendored} has drifted from the library; run scripts/install.sh`);
 	}
 
@@ -555,9 +566,12 @@ test('every entry point declares the project theme key and the runtime', () => {
 		'BaseHead must actually emit the guard');
 
 	const guard = src('js/cli-mono-theme-guard.js');
-	assert.ok(guard.includes('data-cm-theme-key'),
+	// Assert the CALL, not the name: a comment that mentions the
+	// attribute satisfies a bare includes() while the read itself is
+	// gone - the mutant that plants exactly that shape proves it.
+	assert.ok(guard.includes("g('data-cm-theme-key')"),
 		'the FOUC guard must read the project key off <html>');
-	assert.ok(guard.includes('data-cm-theme-legacy'),
+	assert.ok(guard.includes("g('data-cm-theme-legacy')"),
 		'the FOUC guard must read the legacy-key list off <html>');
 	assert.ok(guard.includes('localStorage.getItem'),
 		'the FOUC guard must actually read storage');
@@ -648,4 +662,63 @@ test('the vendored byline separator is the generated one, so it cannot strand', 
 		'the vendored byline separator is not the generated ::before-on-the-preceding-item rule');
 	assert.ok(!/\.cm-byline__sep\b/.test(css),
 		'the vendored copy still defines .cm-byline__sep, the element separator that strands');
+});
+
+/* ---------- the reading-progress line is the library's, article-only ---------- */
+
+test('post pages carry the reading line, written once, in full', () => {
+	// The bar is chrome the runtime drives: written once in the post
+	// layout with the progressbar role, the aria pair and the fill
+	// child - the exact shape the library's showcase writes. A partial
+	// copy (no fill, no aria) is a second implementation again, because
+	// nothing left is owned by the runtime contract.
+	const layout = src('layouts/BlogPost.astro');
+	assert.ok(/<div class="cm-readbar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Reading position"><span class="cm-readbar__fill"><\/span><\/div>/.test(layout),
+		'BlogPost.astro must write .cm-readbar once, with role, aria pair and fill child');
+	// It is written BEFORE the Header: it is pinned above the header's
+	// z-index, and the library writes it the same way in its own page.
+	const at = layout.indexOf('class="cm-readbar"');
+	const hdr = layout.indexOf('<Header');
+	assert.ok(at > -1 && hdr > -1 && at < hdr,
+		'the bar must be written before the Header it sits above, not after it');
+	// And on NO other page: it is reading chrome, so a home or index
+	// page carrying it would claim a progress nothing is being read.
+	for (const f of ['pages/index.astro', 'pages/blog/index.astro', 'pages/about.astro']) {
+		assert.ok(!src(f).includes('cm-readbar'),
+			`${f} carries a .cm-readbar; the reading line is article chrome, not site chrome`);
+	}
+});
+
+test('the vendored readbar CSS, token and runtime are the complete pair', () => {
+	// Markup adoption with stale CSS is the silent half of every consumer
+	// migration, so all three layers are asserted: the rules, the token
+	// they use, and the runtime that drives them - including the
+	// WebKit-critical binding, where the scroll listener goes on window
+	// because in Safari the scroll event targets the document, not
+	// documentElement, and an element-scoped listener never fires.
+	const css = stripComments(src('styles/cli-mono/components.css'));
+	assert.ok(/\.cm-readbar\s*\{/.test(css) && /\.cm-readbar__fill\s*\{/.test(css),
+		'the vendored components.css defines no .cm-readbar');
+	const fill = /\.cm-readbar__fill\s*\{([^}]*)\}/.exec(css);
+	// The denominator is pinned, not just the property: shipped as
+	// `/ 100`, WebKit kept the percent from calc() and converted it a
+	// second time inside scaleX(), rendering 50% as scaleX(0.005) -
+	// measured on this site's post pages, where every runtime write
+	// read correct.
+	assert.ok(fill && /transform:\s*scaleX\(calc\(var\(--cm-readbar[^;]*?\/\s*100%\)\);/.test(fill[1]),
+		'the fill is not transform-driven with a 100% denominator; a width-driven or bare-denominator bar is the pre-fix shape');
+	assert.ok(/pointer-events:\s*none/.test((/.cm-readbar \{[^}]*\}/.exec(css) || [''])[0]),
+		'the bar must be pointer-transparent; it is chrome, not a control');
+	assert.ok(/--z-readbar/.test(src('styles/cli-mono/tokens.css')),
+		'the vendored tokens.css has no --z-readbar for the bar to sit above the header');
+	// A fixed element repeats on every printed page, so the vendored
+	// print block must hide it beside [data-cm-progress].
+	const printBlock = (src('styles/cli-mono/components.css').split('@media print')[1] || '');
+	assert.ok(/\.cm-readbar/.test(printBlock),
+		'the vendored print block does not hide .cm-readbar');
+	const js = src('js/cli-mono.js');
+	assert.ok(/function cmInitReadbars/.test(js),
+		'the vendored runtime has no cmInitReadbars; the bar would sit at 0 forever');
+	assert.ok(/window\.addEventListener\('scroll', paint/.test(js),
+		'the vendored readbar binds its scroll listener to something other than window; in WebKit that listener never fires');
 });

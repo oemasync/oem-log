@@ -28,6 +28,14 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
 	</head>
 
 	<body>
+		<!-- The reading-progress line: the library's .cm-readbar, written once
+		     in this layout and driven by cmInitReadbars from the vendored
+		     runtime. It is chrome, not a control - pointer-events: none,
+		     pinned above the header (--z-readbar 120 > --z-header 100) -
+		     so a post's read position stays visible while the article
+		     scrolls under it. The track starts empty (--cm-readbar: 0):
+		     a page that loads without the runtime shows a bare line. -->
+		<div class="cm-readbar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Reading position"><span class="cm-readbar__fill"></span></div>
 		<Header extraLinks={[{ href: SITE.github, label: 'github' }]} />
 		<main class="post-main">
 			<article>

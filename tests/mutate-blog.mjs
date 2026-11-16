@@ -14,7 +14,7 @@ const run = () => spawnSync('node', ['--test', 'tests/blog.test.mjs'], { encodin
 
 const base = run();
 if (base.status !== 0) { console.error('baseline is not green; fix that first'); process.exit(1); }
-console.log('baseline: 9/9 green\n');
+console.log('baseline: green\n');
 
 /* [name, file, find, replace] */
 const MUTANTS = [
@@ -28,8 +28,12 @@ const MUTANTS = [
 	['rename the markup back to the bare class (the oem-links bug)', 'src/pages/index.astro',
 		'class="cm-kicker"', 'class="kicker"'],
 
-	['leave the selector un-renamed too, so the margin is dead CSS', 'src/pages/index.astro',
-		'.hero .cm-kicker { margin-bottom: 1rem; }', '.hero .kicker { margin-bottom: 1rem; }'],
+	// The scoped block it used to live in is gone from index.astro now;
+	// the guard survives on the layout's real block, where the same
+	// failure shape - a rule still targeting the RETIRED name - is dead
+	// CSS the build and the drift checker both miss.
+	['leave a scoped rule targeting the retired name, so its margin is dead CSS', 'src/layouts/BlogPost.astro',
+		'	.hero-image { margin: 1rem 0 2rem; }', '	.kicker { margin-bottom: 1rem; }\n	.hero-image { margin: 1rem 0 2rem; }'],
 
 	['drop the project theme key from one entry point', 'src/pages/about.astro',
 		'\tdata-cm-theme-key="oem-log-theme"\n', ''],
@@ -38,27 +42,35 @@ const MUTANTS = [
 		"import '../js/cli-mono.js';", ''],
 
 	['re-implement the theme toggle in the component', 'src/components/Header.astro',
-		'<!-- The theme toggle is owned by the library runtime',
-		'<script>\n\tdocument.querySelector(".theme-toggle")\n\t\t.addEventListener("click", () => {\n\t\t\tlocalStorage.setItem("oem-log-theme", "light");\n\t\t});\n</script>\n<!-- owned by the library runtime'],
+		'const links = [',
+		'<script>\n	var themeToggle = document.querySelector(".theme-toggle");\n	if (themeToggle) themeToggle.addEventListener("click", themeSwitch);\n	function themeSwitch() { localStorage.setItem("oem-log-theme", "light"); }\n</script>\nconst links = ['],
 
-	['remove the legacy theme key (returning readers lose their theme)', 'src/components/Header.astro',
-		"var keys = ['oem-log-theme', 'cm-theme'];", "var keys = ['oem-log-theme'];"],
+	// The literal keys array the mutant used to hit no longer exists:
+	// the guard now reads the legacy list off <html>, so the same
+	// failure - returning readers losing their theme - is planted in
+	// the attribute read it replaced.
+	['stop reading the legacy theme key (returning readers lose their theme)', 'src/js/cli-mono-theme-guard.js',
+		"(g('data-cm-theme-legacy') || '').split(',')", "(g('data-cm-theme-gone') || '').split(',')"],
 
-	['strip the mobile floor from a scoped block', 'src/pages/index.astro',
+	['strip the mobile floor from a scoped block', 'src/pages/blog/index.astro',
 		'font-size: max(var(--min-font), 0.72rem);', 'font-size: 0.72rem;'],
 
 	['drift a vendored layer out of sync with the library', 'src/styles/cli-mono/base.css',
 		'html {', 'html{ /* drifted */'],
 
-	['leave a dead class behind in a scoped style block', 'src/components/Footer.astro',
-		'.footer-meta a:hover { color: var(--ink); }',
-		'.footer-meta a:hover { color: var(--ink); }\n	.never-used-thing { color: red; }'],
+	// Footer.astro carries no scoped block any more; the layout's real
+	// block is the anchor. The dead name is one of this project's
+	// RETIRED classes, so the check is proven on its own past, not on
+	// an arbitrary string.
+	['leave a dead class behind in a scoped style block', 'src/layouts/BlogPost.astro',
+		'	.hero-image { margin: 1rem 0 2rem; }',
+		'	.footer-meta a:hover { color: var(--ink); }\n	.hero-image { margin: 1rem 0 2rem; }'],
 
 	// The duplication the migration removed. Re-adding it in a scoped block
 	// is a second owner for a rule the library owns.
-	['re-declare emphasis in a scoped block', 'src/pages/index.astro',
-		'	.hero-actions { display: flex;',
-		'	.hero-desc strong { color: var(--ink); }\n	.hero-actions { display: flex;'],
+	['re-declare emphasis in a scoped block', 'src/layouts/BlogPost.astro',
+		'	.hero-image { margin: 1rem 0 2rem; }',
+		'	.hero-image strong { color: var(--ink); }\n	.hero-image { margin: 1rem 0 2rem; }'],
 
 	['re-declare emphasis on a second page too', 'src/pages/about.astro',
 		'	.about-body p:first-of-type { margin-top: 0; }',
@@ -108,6 +120,68 @@ const MUTANTS = [
 		'src/layouts/BlogPost.astro',
 		'	.hero-image { margin: 1rem 0 2rem; }',
 		'	.hero-image { margin: 1rem 0 2rem; }\n	.the-real-dead-one { color: red; }'],
+
+	// ---- the readbar adoption (the reading line is library chrome) ----
+
+	// The bar goes away from the post layout entirely: the page still
+	// builds, still looks right at the top of the screen, and only the
+	// contract test knows the reader lost their progress.
+	['delete the reading line from the post layout',
+		'src/layouts/BlogPost.astro',
+		'		<div class="cm-readbar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Reading position"><span class="cm-readbar__fill"></span></div>\n',
+		''],
+
+	// A partial copy: the bar without its fill child. The CSS still
+	// paints an empty track, so the page is visually indistinguishable
+	// until somebody scrolls.
+	['ship the bar without its fill child',
+		'src/layouts/BlogPost.astro',
+		'<div class="cm-readbar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Reading position"><span class="cm-readbar__fill"></span></div>',
+		'<div class="cm-readbar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Reading position"></div>'],
+
+	// The reading line is article chrome. Re-adding it to the home page
+	// claims a progress nothing is being read; the page stays green in
+	// the build, in the drift checker and on a screenshot.
+	['put the reading line on the home page too',
+		'src/pages/index.astro',
+		'	<body>\n		<Header',
+		'	<body>\n		<div class="cm-readbar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Reading position"><span class="cm-readbar__fill"></span></div>\n		<Header'],
+
+	// The WebKit-critical binding reverts to the element scope: in
+	// Safari the scroll event targets the document, not
+	// documentElement, so this listener never fires and the bar sits
+	// at 0 for the whole read. The contract test asserts the window
+	// binding for exactly this reason; the WebKit probe is the one
+	// that measures it.
+	['bind the vendored readbar listener to the scroller element',
+		'src/js/cli-mono.js',
+		"window.addEventListener('scroll', paint, { passive: true });",
+		"box.addEventListener('scroll', paint, { passive: true });"],
+
+	// The fill goes back to a width it owns: the transform is what the
+	// runtime scales, and a width-driven bar is the pre-fix shape this
+	// pairing exists to replace.
+	['drive the vendored fill by width instead of transform',
+		'src/styles/cli-mono/components.css',
+		'transform: scaleX(calc(var(--cm-readbar, 0%) / 100%));',
+		'width: var(--cm-readbar, 0%);'],
+
+	// The library's fill-calc fix reverts in the vendored copy: with a
+	// bare-number denominator, WebKit keeps the percent from calc() and
+	// converts it a second time inside scaleX(), rendering 50% as
+	// scaleX(0.005) - a sliver the eye reads as a broken bar while the
+	// runtime's own writes all look right.
+	['revert the vendored fill calc to the bare-number denominator',
+		'src/styles/cli-mono/components.css',
+		'transform: scaleX(calc(var(--cm-readbar, 0%) / 100%));',
+		'transform: scaleX(calc(var(--cm-readbar, 0%) / 100));'],
+
+	// The print block stops hiding the bar: a fixed element would
+	// repeat on every printed page of an article.
+	['un-hide the vendored readbar from print',
+		'src/styles/cli-mono/components.css',
+		'	.cm-readbar,\n	[data-cm-progress] {\n		display: none !important;\n	}',
+		'	[data-cm-progress] {\n		display: none !important;\n	}'],
 ];
 
 let killed = 0, missed = 0, noop = 0;
