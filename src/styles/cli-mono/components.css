@@ -3078,6 +3078,123 @@ button.cm-row:hover { background: var(--bg-2); }
 	text-underline-offset: 0.2em;
 }
 
+/* ---------- endpoint row (cm-endpoint) ----------
+   The top of an API docs entry: the method badge, then the path it
+   documents. The badge is the existing cm-method (the signal - five
+   treatments, no hue); the path is monospace at the path's own weight,
+   and the {param} tokens inside it are the slots the reader fills.
+   Those tokens sit one step down from the path's own ink - ink-dim,
+   the same step the parameter row's type uses - so a path reads as
+   literals with the parts to substitute marked, without a second,
+   hue-tinted scale. It is the path's counterpart to the cm-param rows
+   below: the slot here is what the row there documents.
+
+   Inline, not a target: the same exemption the method badge owns
+   (WCAG 2.5.8) - the box is constrained by the line-height of the path
+   text around it, so there is no tap floor. The row centers the badge
+   on the path's own line, the way the method section composes it; a
+   long path breaks inside its own item (min-width: 0, overflow-wrap)
+   so the row never overruns the viewport on a phone. */
+.cm-endpoint {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.cm-endpoint__path {
+	font-family: var(--font-mono);
+	font-weight: 600;
+	color: var(--ink);
+	/* A path is one token: no spaces to break on, so a long endpoint
+	   overruns the viewport on a phone unless the item may shrink
+	   below its text and the token may break in it. break-word, not
+	   anywhere - anywhere splits identifiers mid-token AND shrinks the
+	   min-content sizing, the same defect the tag and the data-table
+	   URL cells were written to avoid. */
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+.cm-endpoint__param {
+	/* The slot, not the literal: one step down from the path's own
+	   ink so the {param} reads as the thing to substitute - the mark
+	   the parameter row's type already carries, not a new colour. */
+	color: var(--ink-dim);
+}
+
+/* ---------- parameter row (cm-param) ----------
+   The row every API docs page draws under an endpoint: the name,
+   the type, where the parameter lives, whether it is required, and
+   what it means. The library already owns the mark that labels the
+   row (cm-method) and the status code its responses carry
+   (cm-status-code); the parameter row is the middle the docs page
+   still hand-rolled.
+
+   The row is text, not a target, so it carries no tap floor - the
+   same exemption the method badge documents (WCAG 2.5.8: the box is
+   constrained by the line-height of the non-target text around it).
+
+   Required is the FORM'S OWN mark: the faint asterisk the field
+   label already owns (cm-field__req), so a docs reader sees one
+   required signal across the system rather than a second, hue-tinted
+   one. The mark sits inside the name in the name's own size, so a
+   spec that scales the row scales the mark with it.
+
+   The in badge names WHERE the parameter lives (path, query, body,
+   header). The four are one KIND of signal - a location, not a
+   severity - so they share one treatment: the outline, the base
+   method's box. A variant per location would invent a scale the
+   docs do not need.
+
+   The row wraps by height, not by splitting the head: name, mark,
+   type and badge are short, and splitting them is how a row becomes
+   unlegible; the description takes the rest of the line, or its own
+   line when there is no room, which is the phone case. */
+.cm-param {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.35em var(--space-2);
+	padding: var(--space-2) 0;
+	border-bottom: 1px solid var(--line);
+}
+/* The rule is a separator (see .cm-row): it divides one parameter
+   from the next. The last parameter has no next, so its rule
+   separates nothing - and the panel reads as cut off
+   mid-component. */
+.cm-param:last-child { border-bottom: 0; }
+.cm-param__name {
+	font-family: var(--font-mono);
+	font-weight: 600;
+	color: var(--ink);
+}
+.cm-param__req { color: var(--ink-faint); }
+.cm-param__type {
+	font-family: var(--font-mono);
+	/* Floored at min-font the way the method badge is: a type name
+	   at 0.85em of a phone-size row sits under the legibility floor. */
+	font-size: max(var(--min-font), 0.85em);
+	color: var(--ink-dim);
+}
+.cm-param__in {
+	display: inline-block;
+	padding: 0.1em 0.45em;
+	border: 1px solid var(--line);
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), 0.72em);
+	font-weight: 600;
+	line-height: 1.4;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--ink-dim);
+}
+.cm-param__desc {
+	/* The description takes the rest of the line, or its own line
+	   when the head leaves no room: 10rem of basis is the widest
+	   description that still shares the line in a phone column. */
+	flex: 1 1 10rem;
+	min-width: 0;
+	color: var(--ink-dim);
+}
+
 /* ---------- footer shell ---------- */
 .cm-footer {
 	border-top: 1px solid var(--line);
@@ -12108,6 +12225,153 @@ dialog.cm-lightbox--spec:not([open]) .cm-lightbox__close {
 	color: var(--ink-dim);
 	font-size: max(var(--min-font), var(--text-sm));
 }
+
+/* ============ status chroma (opt-in) ============
+   The palette is grey and a state is carried by a glyph and a word.
+   That stays true. This block adds a HUE on top of both, for the
+   surfaces where a reader scans dozens of states at once (a task board,
+   a fleet table) and a column of glyphs alone reads as texture.
+
+   It is opt-in. Nothing below resolves a hue until an ancestor, or the
+   element itself, carries `data-cm-chroma`, so a consumer that never
+   sets the attribute computes the values it always did. Every reader is
+   written `var(--tone, <the grey it shadows>)`, and the suite compares
+   each fallback with the rule it shadows, so the two cannot drift.
+
+   `--tone` is resolved ON the toned element from its own theme's
+   `--chroma-*`. That is why a `[data-cm-theme]` subtree inside a chroma
+   page gets its own theme's hues with no second rule.
+
+   Every reader is `<block>:where(<modifiers>)`: one class of
+   specificity, so a state rule with two (`.cm-chip--action:hover`,
+   `.cm-meter--accent .cm-meter__fill`) still wins, and no existing
+   selector is restated - the checks and mutation harnesses that anchor
+   on the original rules keep reading the original rules.
+
+   A hue never stands alone. `.cm-tone--*` by itself says nothing in
+   greyscale, on paper with one ink, or to a reader who cannot tell red
+   from green, so it goes on something that already names its state. */
+[data-cm-chroma] :where(.cm-tone--ok, .cm-chip--ok, .cm-alert--ok),
+[data-cm-chroma]:where(.cm-tone--ok, .cm-chip--ok, .cm-alert--ok) {
+	--tone: var(--chroma-ok);
+	--tone-soft: var(--chroma-ok-soft);
+	--tone-line: var(--chroma-ok-line);
+}
+[data-cm-chroma] :where(.cm-tone--warn, .cm-chip--warn, .cm-alert--warn),
+[data-cm-chroma]:where(.cm-tone--warn, .cm-chip--warn, .cm-alert--warn) {
+	--tone: var(--chroma-warn);
+	--tone-soft: var(--chroma-warn-soft);
+	--tone-line: var(--chroma-warn-line);
+}
+[data-cm-chroma] :where(.cm-tone--err, .cm-chip--err, .cm-alert--err),
+[data-cm-chroma]:where(.cm-tone--err, .cm-chip--err, .cm-alert--err) {
+	--tone: var(--chroma-err);
+	--tone-soft: var(--chroma-err-soft);
+	--tone-line: var(--chroma-err-line);
+}
+[data-cm-chroma] :where(.cm-tone--info, .cm-chip--info, .cm-alert--info),
+[data-cm-chroma]:where(.cm-tone--info, .cm-chip--info, .cm-alert--info) {
+	--tone: var(--chroma-info);
+	--tone-soft: var(--chroma-info-soft);
+	--tone-line: var(--chroma-info-line);
+}
+
+/* A chip: the tone as text, its soft tint behind, a hairline between.
+   The tint sits ONLY behind text set in the same tone. Grey text on it
+   does not hold: --ink-dim on the dark ok tint over --surface-raised
+   computes 4.3:1, under AA. */
+.cm-chip:where(.cm-tone--ok, .cm-tone--warn, .cm-tone--err, .cm-tone--info, .cm-chip--ok, .cm-chip--warn, .cm-chip--err, .cm-chip--info) {
+	border-color: var(--tone-line, var(--line));
+	background-color: var(--tone-soft, var(--surface-raised));
+	color: var(--tone, var(--ink-dim));
+}
+.cm-chip:where(.cm-chip--ok, .cm-chip--warn, .cm-chip--info)::before { color: var(--tone, var(--ink-dim)); }
+.cm-chip:where(.cm-chip--err)::before { color: var(--tone, var(--ink)); }
+/* The fourth severity. ok, warn and err had a glyph each and info had
+   none, so an "info" chip was a plain chip with a different class name. */
+.cm-chip--info::before { content: '\2139\00a0'; }
+
+/* An alert: the edge and the mark take the tone. The panel keeps its
+   own background, because the title and the text stay ink and ink-dim
+   and neither holds AA on a tint. */
+.cm-alert:where(.cm-alert--ok) { border-inline-start-color: var(--tone, var(--ink-dim)); }
+.cm-alert:where(.cm-alert--warn, .cm-alert--info) { border-inline-start-color: var(--tone, var(--ink-faint)); }
+.cm-alert:where(.cm-alert--err) { border-inline-start-color: var(--tone, var(--ink)); }
+:where(.cm-alert--ok, .cm-alert--warn, .cm-alert--err, .cm-alert--info) > .cm-alert__mark { color: var(--tone, var(--ink-faint)); }
+
+/* A toned dot is a LIT dot. Without chroma it is `.cm-dot--on`; with it,
+   the same square in the tone. A hollow dot that changed hue and nothing
+   else would be the one mark here with no greyscale reading. */
+.cm-dot:where(.cm-tone--ok, .cm-tone--warn, .cm-tone--err, .cm-tone--info) {
+	border-color: var(--tone, var(--ink));
+	background: var(--tone, var(--ink));
+}
+
+/* A stat tile: its top edge takes the tone. The border the tile
+   already has, recoloured, so the box is the same size with and without
+   it and a row of mixed tiles keeps one baseline. A drawn rule (an
+   inset shadow) was the first attempt and the record components' own
+   check refused it: a colour property there is a bare token or nothing. */
+.cm-stat:where(.cm-tone--ok, .cm-tone--warn, .cm-tone--err, .cm-tone--info) { border-block-start-color: var(--tone, var(--line)); }
+
+/* A meter's fill, when the bar itself is the state. */
+:where(.cm-meter.cm-tone--ok, .cm-meter.cm-tone--warn, .cm-meter.cm-tone--err, .cm-meter.cm-tone--info) .cm-meter__fill { background: var(--tone, var(--ink-dim)); }
+
+/* A stacked meter: several shares of one whole on one track. Each
+   segment takes its width from the number its caller printed, the way
+   the single fill does. Neighbours are parted by a 1px gap in the track
+   colour, which is what keeps two shares from reading as one bar, with
+   or without a hue. The first three also step down the grey ramp (ink,
+   ink-dim, ink-faint), a step that holds in both themes; a fourth and
+   later share one grey and rely on the gap.
+
+   The grey is a property rather than a background per position, so the
+   toned reader below can fall back to the grey THIS position would have
+   had. And the reader asks for a tone class on the segment itself:
+   `--tone` inherits, and a segment that read it unconditionally would
+   take the hue of any toned ancestor it happened to sit in. */
+.cm-meter__track--stack { display: flex; }
+.cm-meter__seg {
+	display: block;
+	flex: 0 1 var(--cm-meter-fill, 0%);
+	min-width: 0;
+	height: 100%;
+	background: var(--cm-seg-grey, var(--ink));
+}
+.cm-meter__seg + .cm-meter__seg { border-inline-start: 1px solid var(--bg-3); }
+.cm-meter__seg:nth-child(2) { --cm-seg-grey: var(--ink-dim); }
+.cm-meter__seg:nth-child(3) { --cm-seg-grey: var(--ink-faint); }
+.cm-meter__seg:nth-child(n + 4) { --cm-seg-grey: var(--accent-dim); }
+.cm-meter__seg:where(.cm-tone--ok, .cm-tone--warn, .cm-tone--err, .cm-tone--info) { background: var(--tone, var(--cm-seg-grey, var(--ink))); }
+
+/* The legend a stacked meter needs. The track is aria-hidden and a
+   segment is a colour and a width, so the names and the numbers have to
+   be printed somewhere: here, one entry per segment, IN THE SAME ORDER,
+   which is the only mapping left when the hues are off. It wraps, so a
+   long legend adds a line instead of widening the page: the first
+   specimen printed its numbers in .cm-meter__val, which does not
+   shrink, and scrolled a 390px viewport 91px sideways. */
+.cm-meter__legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1) var(--space-4);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	font-size: max(var(--min-font), var(--text-xs));
+	color: var(--ink-dim);
+}
+.cm-meter__legend > li { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; min-width: 0; }
+.cm-meter__count { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ============ hidden means hidden (scoped twin) ============
+   base.css carries `[hidden] { display: none !important }` for a full
+   adoption. A SCOPED adoption never loads base.css, and it is the same
+   defect there: every component that declares a `display` un-hides
+   itself. This is the same rule, held to elements that carry a library
+   class, so a scoped consumer's own markup is left alone. */
+[class^='cm-'][hidden]:not([hidden='until-found']),
+[class*=' cm-'][hidden]:not([hidden='until-found']) { display: none !important; }
 
 /* ============ stack ownership (LAST, on purpose) ============
    These two rules must beat every component's own block margin. They are
